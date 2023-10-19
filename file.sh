@@ -1,22 +1,27 @@
 #!/bin/bash
 
 create-rep(){
-  local files="$1"
-  for filename in $files; do
-    if [ -z "$filename" ]; then
+  local repos="$1"
+  for name in $repo; do
+    if [ -z "$name" ]; then
         echo "Error: Repository without name??"
         return 1
     fi
 
-    if [ -e "$filename" ]; then
-      echo "Error: Repository '$filename' already exists."
+    if [ -e "$name" ]; then
+      echo "Error: Repository '$name' already exists."
       return 1
     fi
 
-    if mkdir "$filename"; then
-      echo "Repository '$filename' created successfully."
+    if mkdir "$name"; then
+      echo "Repository '$name' created successfully."
+      echo "------------------------------------------" >>  "$name/$name.log"
+      echo "Description: Created the repo $name" > "$name/$name.log"
+ echo "Author: $USER" >> "$name/$name.log"
+      echo "Date: $(date)" >> "$name/$name.log"
+      echo "------------------------------------------" >>  "$name/$name.log"
     else
-      echo "Error: Unable to create Repository '$filename'."
+      echo "Error: Unable to create Repository '$name'."
       return 1
     fi
    done
@@ -38,15 +43,19 @@ add(){
       fi
 
       if touch "$repository/$file"; then
-        chmod u-w "$repository/$file"
+        chmod u-rw "$repository/$file"
         echo "File '$file' created successfully in repository '$repository'."
+        echo "Description: Created file $file in $repository" >> "$repository/$repository.log"
+ echo "Author: $USER" >> "$repository/$repository.log"
+        echo "Date: $(date)" >> "$repository/$repository.log"
+        echo "------------------------------------------" >>  "$repository/$repository.log"
       else
         echo "Error: Unable to create file '$file'."
         return 1
       fi
     done
   else
-      echo "Incorrect Repository"
+      echo "Repository not found"
       return 1
   fi
 }
@@ -94,14 +103,14 @@ remove(){
      done
     fi
   else
-     echo "Incorrect Repository"
+     echo "Repository not found"
   fi
 done
 }
 
 check-out(){
-   local repository="$1"
-  local files="$2" 
+  local repository="$1"
+  local files="$2"
   if [ -e "$repository" ]; then
     for file in $files; do
       if [ -z "$file" ]; then
@@ -109,31 +118,67 @@ check-out(){
         return 1
       fi
 
-      if [ -e "$repository/$file" ]; then
-        
-        return 1
-      fi
-
-      if touch "$repository/$file"; then
-        chmod u-w "$repository/$file"
-        echo "File '$file' created successfully in repository '$repository'."
-      else
-        echo "Error: Unable to create file '$file'."
-        return 1
+      if [ -e "$repository/$file" ] && [ ! -w "$repository/$file" ] && [ ! -r "$repository/$file" ]; then
+         chmod u+rw "$repository/$file"
+        nano "$repository/$file"
+        echo "File '$file' in '$repository' has been checked out now."
+        echo "Description: Checked out file $file in $repository" >> "$repository/$repository.log"
+        echo "Author: $USER" >> "$repository/$repository.log"
+        echo "Date: $(date)" >> "$repository/$repository.log"
+        echo "------------------------------------------" >>  "$repository/$repository.log"
+     else
+       echo "This file is currently being edited by $USER"
+       return 1
       fi
     done
   else
-      echo "Incorrect Repository"
+      echo "Repository not found"
       return 1
   fi
 }
 
 check-in(){
-  echo "checked In"
+  local repository="$1"
+  local files="$2"
+  local message="$3" 
+  if [ -e "$repository" ]; then
+    for file in $files; do
+      if [ -z "$file" ]; then
+        echo "Error: File name cannot be empty."
+        return 1
+      fi
+
+      if [ -w "$repository/$file" ] && [ -r "$repository/$file" ]; then
+        chmod u-rw "$repository/$file"
+        echo "File '$file' in '$repository' has been checked in now."
+        echo "Description: Modified file $file in $repository" >> "$repository/$repository.log"
+ echo "Author: $USER" >> "$repository/$repository.log"
+        echo "Message : $message" >> "$repository/$repository.log"
+        echo "Date: $(date)" >> "$repository/$repository.log"
+ echo "------------------------------------------" >>  "$repository/$repository.log"
+      else
+        echo "File already checked in"
+      fi
+    done
+  else
+      echo "Repository not found"
+      return 1
+  fi
 }
 
 log(){
-  echo "log"
+  local repository="$1"
+ if [ -e "$repository" ]; then
+      if [ -e "$repository/$repository.log" ]; then
+        cat "$repository/$repository.log"
+      else
+        echo "No Log File Found"
+        return 1
+      fi
+  else
+      echo "Repository not found"
+      return 1
+  fi
 }
 
 help() {
@@ -203,7 +248,7 @@ help() {
   echo "-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*"
 }
 
-while getopts ":c:r:f:" opt; do
+while getopts ":c:r:f:m:" opt; do
   case $opt in
     c)
       command="$OPTARG"
@@ -213,6 +258,9 @@ while getopts ":c:r:f:" opt; do
       ;;
     f)
       file="$OPTARG"
+      ;;
+    m)
+      message="$OPTARG"
       ;;
     \?)
       echo "Invalid option: -$OPTARG"
@@ -249,10 +297,20 @@ case "$command" in
     fi
     ;;
   "check-in")
-    check-in
+    if [ -n "$file" ]; then
+      check-in "$repo" "$file" "$message"
+    else
+      echo "File name is required for check-in."
+      exit 1
+    fi
     ;;
   "log")
-    log
+      if [ -n "$repo" ]; then
+       log "$repo"
+      else
+       echo "Repository name is required to print the log"
+       exit 1
+      fi
     ;;
   "help")
     help
