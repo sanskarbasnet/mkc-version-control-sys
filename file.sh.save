@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 create-rep(){
@@ -101,7 +100,7 @@ done
 }
 
 check-out(){
-  local repository="$1"
+   local repository="$1"
   local files="$2" 
   if [ -e "$repository" ]; then
     for file in $files; do
@@ -109,17 +108,28 @@ check-out(){
         echo "Error: File name cannot be empty."
         return 1
       fi
+
       if [ -e "$repository/$file" ]; then
-        chmod u+rw "$repository/$file"
-        echo "'$file' is now checked out"
-        nano "$repository/$file"
+        
+        return 1
       fi
-   done
-fi
+
+      if touch "$repository/$file"; then
+        chmod u-w "$repository/$file"
+        echo "File '$file' created successfully in repository '$repository'."
+      else
+        echo "Error: Unable to create file '$file'."
+        return 1
+      fi
+    done
+  else
+      echo "Incorrect Repository"
+      return 1
+  fi
 }
 
 check-in(){
-  
+  echo "checked In"
 }
 
 log(){
