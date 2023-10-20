@@ -14,11 +14,12 @@ create-rep(){
     fi
 
     if mkdir "$name"; then
+      mkdir "$name/vcs_utils"
       echo "Repository '$name' created successfully."
-      echo "------------------------------------------" >>  "$name/$name.log"
-      echo "Description: Created the repo $name" > "$name/$name.log"
- echo "Author: $USER" >> "$name/$name.log"
-      echo "Date: $(date)" >> "$name/$name.log"
+      echo "------------------------------------------" >>  "$name/vcs_utils/$name.log"
+      echo "Description: Created the repo $name" > "$name/vcs_utils/$name.log"
+ echo "Author: $USER" >> "$name/vcs_utils/$name.log"
+      echo "Date: $(date)" >> "$name/vcs_utils/$name.log"
       echo "------------------------------------------" >>  "$name/$name.log"
     else
       echo "Error: Unable to create Repository '$name'."
@@ -45,10 +46,10 @@ add(){
       if touch "$repository/$file"; then
         chmod u-rw "$repository/$file"
         echo "File '$file' created successfully in repository '$repository'."
-        echo "Description: Created file $file in $repository" >> "$repository/$repository.log"
- echo "Author: $USER" >> "$repository/$repository.log"
-        echo "Date: $(date)" >> "$repository/$repository.log"
-        echo "------------------------------------------" >>  "$repository/$repository.log"
+        echo "Description: Created file $file in $repository" >> "$repository/vcs_utils/$repository.log"
+ echo "Author: $USER" >> "$repository/vcs_utils/$repository.log"
+        echo "Date: $(date)" >> "$repository/vcs_utils/$repository.log"
+        echo "------------------------------------------" >>  "$repository/vcs_utils/$repository.log"
       else
         echo "Error: Unable to create file '$file'."
         return 1
@@ -120,14 +121,16 @@ check-out(){
 
       if [ -e "$repository/$file" ] && [ ! -w "$repository/$file" ] && [ ! -r "$repository/$file" ]; then
          chmod u+rw "$repository/$file"
+         echo "$USER" >> "$repository/vcs_utils/editingUser.txt"
         nano "$repository/$file"
         echo "File '$file' in '$repository' has been checked out now."
-        echo "Description: Checked out file $file in $repository" >> "$repository/$repository.log"
-        echo "Author: $USER" >> "$repository/$repository.log"
-        echo "Date: $(date)" >> "$repository/$repository.log"
-        echo "------------------------------------------" >>  "$repository/$repository.log"
+        echo "Description: Checked out file $file in $repository" >> "$repository/vcs_utils/$repository.log"
+        echo "Author: $USER" >> "$repository/vcs_utils/$repository.log"
+        echo "Date: $(date)" >> "$repository/vcs_utils/$repository.log"
+        echo "------------------------------------------" >>  "$repository/vcs_utils/$repository.log"
      else
-       echo "This file is currently being edited by $USER"
+       local username=$(cat "$repository/vcs_utils/editingUser.txt")
+       echo "This file is currently being edited by $username"
        return 1
       fi
     done
@@ -150,12 +153,13 @@ check-in(){
 
       if [ -w "$repository/$file" ] && [ -r "$repository/$file" ]; then
         chmod u-rw "$repository/$file"
+        echo -n "$repository/vcs_utils/editingUser.txt"
         echo "File '$file' in '$repository' has been checked in now."
-        echo "Description: Modified file $file in $repository" >> "$repository/$repository.log"
- echo "Author: $USER" >> "$repository/$repository.log"
-        echo "Message : $message" >> "$repository/$repository.log"
-        echo "Date: $(date)" >> "$repository/$repository.log"
- echo "------------------------------------------" >>  "$repository/$repository.log"
+        echo "Description: Checked in file $file in $repository" >> "$repository/vcs_utils/$repository.log"
+ echo "Author: $USER" >> "$repository/vcs_utils/$repository.log"
+        echo "Message : $message" >> "$repository/vcs_utils/$repository.log"
+        echo "Date: $(date)" >> "$repository/vcs_utils/$repository.log"
+ echo "------------------------------------------" >>  "$repository/vcs_utils/$repository.log"
       else
         echo "File already checked in"
       fi
@@ -169,8 +173,8 @@ check-in(){
 log(){
   local repository="$1"
  if [ -e "$repository" ]; then
-      if [ -e "$repository/$repository.log" ]; then
-        cat "$repository/$repository.log"
+      if [ -e "$repository/vcs_utils/$repository.log" ]; then
+        cat "$repository/vcs_utils/$repository.log"
       else
         echo "No Log File Found"
         return 1
@@ -181,10 +185,38 @@ log(){
   fi
 }
 
+compile() {
+  local repository="$1"
+  local files="$2"
+
+  if [ ! -e "$repository" ]; then
+    echo "Repository '$repository' does not exist."
+    return 1
+  fi
+
+  for file in $files; do
+    if [ -z "$file" ]; then
+      echo "File name can't be empty"
+      return 1
+    fi
+
+    output="${file%.c}"
+    chmod u+rwx "$repository/$file"
+    if gcc "$repository/$file" -o "$repository/$output"; then
+      echo "Compilation Successful. Executable '$output' created."
+      chmod u-rw "$repository/$file"
+    else
+      echo "Compilation of '$file' failed. Check your code for errors."
+    fi
+  done
+}
+
+
 help() {
   echo "Usage: $0 -c <command> [-r \"<repository1> <repository2> ...\"] [-f \"<file1> <file2> ...\"]"
   echo
   echo "Options:"
+
   echo "  -c <command>      Specify the command (create-rep, add, remove, check-out, check-in, log, help)"
   echo "  -r \"<repository> <repository2> ...\"    Specify the repository name(s)"
   echo "  -f \"<file1> <file2> ...\"          Specify the file name(s) (required for add and check-out)"
@@ -309,6 +341,14 @@ case "$command" in
        log "$repo"
       else
        echo "Repository name is required to print the log"
+       exit 1
+      fi
+    ;;
+ "compile")
+      if [ -n "$file" ]; then
+       compile "$repo" "$file"
+      else
+       echo "file name is required to compile"
        exit 1
       fi
     ;;
