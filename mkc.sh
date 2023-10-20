@@ -45,6 +45,11 @@ add(){
 
       if touch "$repository/$file"; then
         chmod u-rw "$repository/$file"
+        mkdir -p "./${repository}/vcs_utils/versions"
+        mkdir -p "./${repository}/vcs_utils/versions/${files}_version"
+        touch "./${repository}/vcs_utils/versions/${files}_version/v1_${files}"
+        touch "./${repository}/vcs_utils/versions/${files}_version/version_manager.txt"
+        echo "1" > "./${repository}/vcs_utils/versions/version_manager.txt" 
         echo "File '$file' created successfully in repository '$repository'."
         echo "Description: Created file $file in $repository" >> "$repository/vcs_utils/$repository.log"
  echo "Author: $USER" >> "$repository/vcs_utils/$repository.log"
@@ -153,6 +158,12 @@ check-in(){
 
       if [ -w "$repository/$file" ] && [ -r "$repository/$file" ]; then
         chmod u-rw "$repository/$file"
+        versionFilePath="./${repository}/vcs_utils/versions/${file}_version/version_manager.txt"
+        first_line=$(head -n 1 "$versionFilePath")
+        new_number=$((first_line + 1))
+        echo "$new_number" > "${versionFilePath}"
+        touch "./${repository}/vcs_utils/versions/${file}_version/v${new_number}_file"
+        sudo cat "$repository/$file" > "./${repository}/vcs_utils/versions/${file}_version/v${new_number}_file" 
         echo -n "$repository/vcs_utils/editingUser.txt"
         echo "File '$file' in '$repository' has been checked in now."
         echo "Description: Checked in file $file in $repository" >> "$repository/vcs_utils/$repository.log"
@@ -209,6 +220,87 @@ compile() {
       echo "Compilation of '$file' failed. Check your code for errors."
     fi
   done
+}
+
+print_menu () {
+ folderPath=$1
+ versionSelected=$2  
+ ogPath=$3
+  echo "Select an operation:"
+  echo "[1] Read a Version"
+  echo "[2] Rollback a Version"
+  echo "[3] Exit"
+
+  read -p "Enter your choice: " choice
+
+  if [ "$choice" == "1" ]; then
+    echo "You selected 'Read a Version'."
+    sudo cat "$ogPath"
+    print_menu $folderPath $versionSelected $ogPath 
+  elif [ "$choice" == "2" ]; then
+    chmod u+rw "${folderPath}/${versionSelected}"
+    chmod u+rw "$ogPath"    
+    sudo cat "${folderPath}/${versionSelected}" > "$ogPath"
+    chmod u+rw "${ogPath}"
+    echo "Rollback was successful"
+  elif [ "$choice" == "3" ]; then
+    echo "Exiting"
+    exit 0 	
+  else
+    echo "Invalid choice. Please enter 1 or 2."
+    print_menu folderPath versionSelected ogPath 
+  fi
+}
+
+rollback () {
+  local fileName="$1"
+  local folderName="$2"
+  echo "$fileName"
+  echo "$folderName"
+  versionsPath="./${folderName}/vcs_utils/versions/$1_version"
+  file_path="./$folderName/$fileName"
+  echo "$file_path"
+
+  if [ -e "$file_path" ]; then
+    echo "$file_path"
+    echo "File Found, Select an Operation:"
+    echo "Versions Available:"
+    echo "File Name : $fileName"
+    ls "$versionsPath"
+    read -p "Enter complete name of the version: " versionSelected
+    if [ -e "$versionsPath/${versionSelected}" ]; then
+    	echo "Version Found"
+   	print_menu $versionsPath $versionSelected $file_path
+    else
+    	echo "Version does not exist"
+        rollback
+     fi
+  else
+    echo "File does not exist"
+  fi
+}
+
+
+backup() {
+local source_folder="./"
+local backup_folder="./allBackups"
+
+
+if [ -d "$source_folder" ]; then
+    mkdir -p "$backup_folder"
+
+    sudo rsync -av "$source_folder/" "$backup_folder/"
+    
+    if [ $? -eq 0 ]; then
+        rm -r "./allBackups/allBackups"
+        echo "Backup completed successfully."
+    else
+        echo "Backup failed. Please check the source and destination paths."
+    fi
+else
+    echo "Source folder not found: $source_folder"
+fi
+
 }
 
 
@@ -351,6 +443,12 @@ case "$command" in
        echo "file name is required to compile"
        exit 1
       fi
+    ;;
+ "backup")
+    backup
+    ;;
+  "rollback")
+    rollback "$file" "$repo"
     ;;
   "help")
     help
